@@ -1,0 +1,52 @@
+import numpy as np
+from tensorflow import keras
+from matplotlib import pyplot as plt
+from sklearn.model_selection import train_test_split
+
+# Load the data
+data = np.load('EuroSAT.npz') # This is a hypothetical numpy array file
+satellite_images, land_cover_labels = data['satellite_images'], data['land_cover_labels']
+
+# Normalize pixel values to be between 0 and 1
+satellite_images, land_cover_labels = satellite_images / 255.0, land_cover_labels
+
+# Split the data into train and test datasets
+train_images, test_images, train_labels, test_labels = train_test_split(satellite_images, land_cover_labels, test_size=0.2)
+
+model = keras.models.Sequential([
+    keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=(64, 64, 13)), # 13 spectral bands
+    keras.layers.MaxPooling2D((2, 2)),
+    keras.layers.Dropout(0.2),
+    keras.layers.Conv2D(64, (3, 3), activation='relu'),
+    keras.layers.MaxPooling2D((2, 2)),
+    keras.layers.Dropout(0.2),
+    keras.layers.Flatten(),
+    keras.layers.Dense(64, activation='relu'),
+    keras.layers.Dense(10) # 10 different classes in the EuroSAT dataset
+])
+
+model.compile(optimizer='adam',
+              loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+              metrics=['accuracy'])
+
+# Train the model
+history = model.fit(train_images, train_labels, epochs=10, validation_data=(test_images, test_labels))
+
+test_loss, test_acc = model.evaluate(test_images, test_labels, verbose=2)
+print('\nTest accuracy:', test_acc)
+
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 2, 1)
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.legend()
+plt.title('Training and Validation Accuracy')
+
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.legend()
+plt.title('Training and Validation Loss')
+
+plt.show()

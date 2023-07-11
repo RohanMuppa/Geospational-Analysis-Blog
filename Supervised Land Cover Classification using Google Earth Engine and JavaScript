@@ -1,0 +1,44 @@
+// Import a Landsat 8 image.
+var image = ee.Image('LANDSAT/LC08/C01/T1_TOA/LC08_044034_20140318');
+
+// Define a region of interest with a point.
+var geometry = ee.Geometry.Point([-122.3942, 37.7295]);
+var region = geometry.buffer(50000); // 50 kilometers
+
+// Display the image.
+Map.addLayer(image, {bands: ['B4', 'B3', 'B2'], max: 0.3}, 'Landsat 8 original image');
+
+// Sample the image at the points and add a random column.
+var points = image.sample({
+region: region,
+scale: 30,
+numPixels: 5000,
+seed: 0,
+geometries: true // Set this to false to ignore geometries
+}).randomColumn();
+// Make a training-testing split.
+var training = points.filter(ee.Filter.lt('random', 0.7));
+var testing = points.filter(ee.Filter.gte('random', 0.7));
+
+// Instantiate the clusterer and train it.
+var clusterer = ee.Clusterer.wekaKMeans(15).train(training);
+
+// Cluster the input using the trained clusterer.
+var result = image.cluster(clusterer);
+
+// Display the clusters with random colors.
+Map.addLayer(result.randomVisualizer(), {}, 'clusters');
+
+// Now, use the clusters as a classifier!
+
+var trained = ee.Classifier.smileCart().train({
+features: training,
+classProperty: 'cluster',
+inputProperties: image.bandNames()
+});
+
+// Classify the image.
+var classified = image.classify(trained);
+
+// Display the classification result.
+Map.addLayer(classified.randomVisualizer(), {}, 'classification');

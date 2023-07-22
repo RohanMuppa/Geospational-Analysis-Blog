@@ -1,0 +1,67 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.ensemble import IsolationForest
+from netCDF4 import Dataset
+
+# Load the netCDF data
+nc_file = 'satellite_data.nc'
+nc_data = Dataset(nc_file, mode='r')
+
+# Print the variables in the netCDF file
+print(nc_data.variables.keys())
+
+# Extract longitude, latitude, time, temperature, pressure, ozone, electron_density, ion_velocity
+longitude = nc_data.variables['longitude'][:]
+latitude = nc_data.variables['latitude'][:]
+time = nc_data.variables['time'][:]
+temperature = nc_data.variables['temperature'][:]
+pressure = nc_data.variables['pressure'][:]
+ozone = nc_data.variables['ozone'][:]
+electron_density = nc_data.variables['electron_density'][:]
+ion_velocity = nc_data.variables['ion_velocity'][:]
+
+# Convert data to 1D
+temperature_1d = np.ravel(temperature)
+pressure_1d = np.ravel(pressure)
+ozone_1d = np.ravel(ozone)
+electron_density_1d = np.ravel(electron_density)
+ion_velocity_1d = np.ravel(ion_velocity)
+
+# Create a DataFrame
+data = pd.DataFrame({
+    'Temperature': temperature_1d,
+    'Pressure': pressure_1d,
+    'Ozone': ozone_1d,
+    'ElectronDensity': electron_density_1d,
+    'IonVelocity': ion_velocity_1d
+})
+
+# Print the first few rows of the DataFrame
+print(data.head())
+
+# Define the anomaly detection model
+model = IsolationForest(contamination=0.01)
+
+# Fit the model
+model.fit(data)
+
+# Predict the anomalies in the data
+data['Anomaly'] = model.predict(data)
+
+# Print the anomaly prediction (-1 = anomaly, 1 = normal)
+print(data['Anomaly'].value_counts())
+
+# Separate anomalies from normal data
+anomalies = data[data['Anomaly'] == -1]
+normal = data[data['Anomaly'] == 1]
+
+# Plot the anomalies for each variable
+variables = ['Temperature', 'Pressure', 'Ozone', 'ElectronDensity', 'IonVelocity']
+
+for variable in variables:
+    plt.figure(figsize=(10, 6))
+    plt.plot(normal[variable], 'b')
+    plt.plot(anomalies[variable], 'r')
+    plt.title(f'{variable} Anomalies')
+    plt.show()

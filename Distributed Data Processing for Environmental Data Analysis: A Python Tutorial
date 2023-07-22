@@ -1,0 +1,54 @@
+import pydoop.hdfs as hdfs
+
+# Specify the path to the data on HDFS
+data_path = "hdfs://localhost:9000/user/data/satellite_images/"
+
+# Get a list of all files in the data directory
+files = hdfs.ls(data_path)
+
+# Initialize an empty list to hold the data
+data = []
+
+# Load each file into the list
+for file in files:
+    with hdfs.open(file, 'rb') as f:
+        data.append(f.read())
+
+from pyflink.datastream import StreamExecutionEnvironment
+from pyflink.table import StreamTableEnvironment, DataTypes
+from pyflink.table.descriptors import Schema, OldCsv, FileSystem
+
+# Initialize the StreamExecutionEnvironment
+env = StreamExecutionEnvironment.get_execution_environment()
+
+# Initialize the StreamTableEnvironment
+t_env = StreamTableEnvironment.create(env)
+
+# Register a source that reads from the data list
+t_env.connect(FileSystem().path(data_path)) \
+    .with_format(OldCsv()
+                 .field('pixel_values', DataTypes.STRING())) \
+    .with_schema(Schema()
+                 .field('pixel_values', DataTypes.STRING())) \
+    .create_temporary_table('mySource')
+
+# Register a sink that writes to the standard out
+t_env.connect(FileSystem().path('stdout:')) \
+    .with_format(OldCsv()
+                 .field('pixel_values', DataTypes.STRING())) \
+    .with_schema(Schema()
+                 .field('pixel_values', DataTypes.STRING())) \
+    .create_temporary_table('mySink')
+
+# Query the source table and perform a simple transformation
+t_env.sql_update(
+    """
+    INSERT INTO mySink
+    SELECT pixel_values
+    FROM mySource
+    WHERE pixel_values IS NOT NULL AND pixel_values != ''
+    """
+)
+
+# Execute the Flink job
+t_env.execute("Python Satellite Imagery Analysis")

@@ -1,0 +1,28 @@
+import rasterio
+import numpy as np
+
+# Open the datasets
+with rasterio.open('path_to_your_modis_data_t1.tif') as src:
+    modis_data_t1 = src.read()
+
+with rasterio.open('path_to_your_modis_data_t2.tif') as src:
+    modis_data_t2 = src.read()
+
+# Compute difference
+difference = np.abs(modis_data_t1 - modis_data_t2)
+
+# Any non-zero values in 'difference' indicate change
+change_map = np.where(difference > 0, 1, 0)
+
+# Load a stack of MODIS images
+modis_stack = []
+for i in range(number_of_images):
+    with rasterio.open(f'path_to_your_modis_data_t{i}.tif') as src:
+        modis_stack.append(src.read())
+
+# Convert the list to a numpy array
+modis_stack = np.array(modis_stack)
+
+# Calculate mean and variance for each pixel over time
+mean = np.mean(modis_stack, axis=0)
+variance = np.var(modis_stack, axis=0)

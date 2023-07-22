@@ -1,0 +1,61 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import odeint
+
+L = 10.0         # length of the domain (m)
+nx = 101         # number of spatial grid points
+dx = L / (nx-1)  # spatial step size (m)
+x = np.linspace(0, L, nx)  # spatial grid
+
+h0 = 1.0  # initial depth of water (m)
+u0 = 0.0  # initial velocity of water (m/s)
+g = 9.81  # acceleration due to gravity (m/s^2)
+
+# initial condition vector
+y0 = np.zeros(2*nx)
+y0[:nx] = h0
+y0[nx:] = u0
+
+def rhs(y, t):
+    h = y[:nx]
+    u = y[nx:]
+    
+    # create right-hand side of ODE system
+    dydt = np.zeros_like(y)
+    
+    # derivative of h
+    dydt[:nx] = -u * (np.roll(h, -1) - np.roll(h, 1)) / (2*dx)
+    
+    # derivative of u
+    dydt[nx:] = -g * (np.roll(h, -1) - np.roll(h, 1)) / (2*dx) - u * (np.roll(u, -1) - np.roll(u, 1)) / (2*dx)
+    
+    return dydt
+
+T = 1.0   # end time (s)
+dt = 0.01  # time step size (s)
+t = np.arange(0, T, dt)  # time grid
+
+# solve ODE system
+y = odeint(rhs, y0, t)
+
+# extract h and u from solution
+h = y[:, :nx]
+u = y[:, nx:]
+
+for i in range(0, len(t), 10):
+    plt.figure(figsize=(12, 6))
+    
+    plt.subplot(2, 1, 1)
+    plt.plot(x, h[i], 'b')
+    plt.ylabel('Water depth (m)')
+    plt.ylim(h0-0.1, h0+0.1)
+    plt.title(f't = {t[i]:.2f} s')
+    
+    plt.subplot(2, 1, 2)
+    plt.plot(x, u[i], 'r')
+    plt.xlabel('x (m)')
+    plt.ylabel('Velocity (m/s)')
+    plt.ylim(u0-0.1, u0+0.1)
+    
+    plt.tight_layout()
+    plt.show()
